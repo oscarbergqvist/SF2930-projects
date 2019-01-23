@@ -16,3 +16,8 @@ Women:
 - mätvärden anges i oklart
 
 Responsvariabel: DEXfat
+
+
+TILL NÄSTA GÅNG:
+Plotta varje variabel mot responsvariabeln, undersök linjärt el. ickelinjärt förhållande, jmf: (http://home.iitk.ac.in/~shalab/regression/Chapter5-Regression-TransformationAndWeightingToCorrectModelInadequacies.pdf)
+Detta pga att avgöra om man behöver transformera datan
