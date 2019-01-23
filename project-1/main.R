@@ -1,6 +1,7 @@
 # load packages
 library("dplyr")
 library("tidyverse")
+library("corrplot")
 
 setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-1")
 
@@ -11,6 +12,12 @@ model_women <- lm(DEXfat ~ age + waistcirc + hipcirc + elbowbreadth + kneebreadt
 anova(model_women)
 summary(model_women)
 plot(model_women)
+
+# visualize correlation between different explanatory variables
+women %>%
+  dplyr::select(DEXfat,age,waistcirc,hipcirc,elbowbreadth,kneebreadth,anthro3a,anthro3b,anthro3c,anthro4) %>%
+  cor %>%
+  corrplot.mixed()
 
 # load data for men
 men <- read.csv("bodyfatmen.csv")
@@ -23,3 +30,9 @@ model_men <- lm(bfm ~ age + weight + height + neck + chest + abdomen + hip + thi
 anova(model_men)
 summary(model_men)
 plot(model_men)
+
+# visualize correlation between different explanatory variables
+men %>%
+  dplyr::select(bfm,age,weight,height,neck,chest,abdomen,hip,thigh,knee,ankle,biceps,forearm,wrist) %>%
+  cor %>%
+  corrplot.mixed()
