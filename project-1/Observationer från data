@@ -7,4 +7,14 @@ Men:
 
 neck, chest, abdomen, hip, thigh, knee, ankle, biceps, forearm, wrist är angivna i cm
 
+Responsvariabel SKAPAS från denstieten enl:
+Y=(495/densitet)-450
+
+
+
 Women:
+- DEXfat anges i %
+- waistcirc, hipcirc, elbowbreadth anges i cm
+- mätvärden anges i oklart
+
+Responsvariabel: DEXfat
