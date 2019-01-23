@@ -3,11 +3,10 @@ library("dplyr")
 library("tidyverse")
 
 # load data for women
-library("TH.data")
-data("bodyfat")
-women <- bodyfat
+setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-1")
+women <- read.csv("bodyfatwomen.csv")
+view(women)
 
 # load data for men
-library("mfp")
-data("bodyfat")
-men <- bodyfat
+men <- read.csv("bodyfatmen.csv")
+
