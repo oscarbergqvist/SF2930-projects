@@ -5,20 +5,6 @@ library("corrplot")
 
 setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-1")
 
-# load data for women
-women <- read.csv("bodyfatwomen.csv")
-
-model_women <- lm(DEXfat ~ age + waistcirc + hipcirc + elbowbreadth + kneebreadth + anthro3a + anthro3b + anthro3c + anthro4, data = women)
-anova(model_women)
-summary(model_women)
-plot(model_women)
-
-# visualize correlation between different explanatory variables
-women %>%
-  dplyr::select(DEXfat,age,waistcirc,hipcirc,elbowbreadth,kneebreadth,anthro3a,anthro3b,anthro3c,anthro4) %>%
-  cor %>%
-  corrplot.mixed()
-
 # load data for men
 men <- read.csv("bodyfatmen.csv")
 
