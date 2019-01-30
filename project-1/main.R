@@ -26,3 +26,5 @@ men %>%
   dplyr::select(bfm,age,weight,height,neck,chest,abdomen,hip,thigh,knee,ankle,biceps,forearm,wrist) %>%
   cor %>%
   corrplot.mixed()
+
+#Jämför exempel 3, 4 från övning 3 (script finns på Canvas)
