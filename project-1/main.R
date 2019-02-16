@@ -7,10 +7,9 @@ library("leaps")
 
 setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-1")
 
-# load data for men
+# load data for men, create test and training datasets
 men <- read.csv("bodyfatmen.csv")
 
-#transform to SI units
 men$weight <- c(0.001*453.6*men$weight)
 men$height <- c(2.54*0.01*men$height)
 men$neck <- c(0.01*men$neck)
@@ -23,6 +22,14 @@ men$ankle <- c(0.01*men$ankle)
 men$biceps <- c(0.01*men$biceps)
 men$forearm <- c(0.01*men$forearm)
 men$wrist <- c(0.01*men$wrist)
+
+train <- sample_frac(men, 0.8)
+sid <- as.numeric(rownames(train))
+test <- men[-sid,]
+write.csv(train, file = "train.csv")
+write.csv(test, file = "test.csv")
+
+men <- read.csv("train.csv")
 
 #fit linear model to data
 model_men <- lm(density ~ ., data = men)
