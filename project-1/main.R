@@ -39,7 +39,7 @@ plot(model_men)
 studres(model_men)
 
 #Remove row 39, which is deemed to be an outler
-men <- men[-c(39),]
+men <- men[-c(30, 102),]
 
 #fit linear model to data AGAIN
 model_men <- lm(density ~ ., data = men)
