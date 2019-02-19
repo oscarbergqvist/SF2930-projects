@@ -4,8 +4,10 @@ library("dplyr")
 library("tidyverse")
 library("corrplot")
 library("leaps")
+library("MASS")
 
 setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-1")
+setwd("C:/Users/NextLevel/Desktop/SF2930-projects/project-1")
 
 # load data for men, create test and training datasets
 men <- read.csv("bodyfatmen.csv")
@@ -37,6 +39,7 @@ anova(model_men)
 summary(model_men)
 plot(model_men)
 studres(model_men)
+
 
 #Remove row 39, which is deemed to be an outler
 men <- men[-c(30, 102),]
