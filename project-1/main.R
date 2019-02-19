@@ -38,10 +38,24 @@ model_men <- lm(density ~ ., data = men)
 anova(model_men)
 summary(model_men)
 plot(model_men)
-studres(model_men)
+
+# Residual analysis on the full model
+n = nrow(model_men$model)
+p = ncol(model_men$model) - 1
+h_ii = lm.influence(model_men)$hat
+
+res = residuals(model_men)
+MS_res = sum(res^2)/(n-p) 
+res_std   = res / sqrt(MS_res)
+res_stud  = res / sqrt(MS_res*(1-h_ii))
+res_press = res / (1 - h_ii)
+S_sq = ((n-p)*MS_res - res^2/(1-h_ii)) / (n-p-1)
+res_rstud = res / sqrt(S_sq*(1-h_ii))
+res_studlib = studres(model_men)  
+# Why the difference between library stud and calculated stud residual
 
 
-#Remove row 39, which is deemed to be an outler
+plo#Remove row 39, which is deemed to be an outler
 men <- men[-c(30, 102),]
 
 #fit linear model to data AGAIN
