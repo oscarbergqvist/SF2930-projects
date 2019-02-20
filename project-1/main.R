@@ -9,30 +9,28 @@ library("glmnet")
 setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-1")
 setwd("C:/Users/NextLevel/Desktop/SF2930-projects/project-1")
 
-### DO NOT RE-RUN ###
-    # load data for men, rescale variables to SI units, create test and training datasets
-    men <- read.csv("bodyfatmen.csv")
+# # load data for men, rescale variables to SI units, create test and training datasets
+# men <- read.csv("bodyfatmen.csv")
+# 
+# men$weight <- c(0.001*453.6*men$weight)
+# men$height <- c(2.54*0.01*men$height)
+# men$neck <- c(0.01*men$neck)
+# men$chest <- c(0.01*men$chest)
+# men$abdomen <- c(0.01*men$abdomen)
+# men$hip <- c(0.01*men$hip)
+# men$thigh <- c(0.01*men$thigh)
+# men$knee <- c(0.01*men$knee)
+# men$ankle <- c(0.01*men$ankle)
+# men$biceps <- c(0.01*men$biceps)
+# men$forearm <- c(0.01*men$forearm)
+# men$wrist <- c(0.01*men$wrist)
+# sid <- as.numeric(rownames(train))
+# train <- sample_frac(men, 0.8)
+# test <- men[-sid,]
+# write.csv(train, file = "train.csv")
+# write.csv(test, file = "test.csv")
     
-    men$weight <- c(0.001*453.6*men$weight)
-    men$height <- c(2.54*0.01*men$height)
-    men$neck <- c(0.01*men$neck)
-    men$chest <- c(0.01*men$chest)
-    men$abdomen <- c(0.01*men$abdomen)
-    men$hip <- c(0.01*men$hip)
-    men$thigh <- c(0.01*men$thigh)
-    men$knee <- c(0.01*men$knee)
-    men$ankle <- c(0.01*men$ankle)
-    men$biceps <- c(0.01*men$biceps)
-    men$forearm <- c(0.01*men$forearm)
-    men$wrist <- c(0.01*men$wrist)
-    sid <- as.numeric(rownames(train))
-    train <- sample_frac(men, 0.8)
-    test <- men[-sid,]
-    write.csv(train, file = "train.csv")
-    write.csv(test, file = "test.csv")
-
-### START HERE ###
-#read data and fit linear model to data
+# Read data and fit linear model to data
 men <- read.csv("train.csv")
 men$X <- NULL
 model_men <- lm(density ~ ., data = men)
@@ -47,16 +45,16 @@ h_ii = lm.influence(model_men)$hat
 hat_mean <- 2*p/n
 
 ### Investigating points and residuals
-#Leverage points
+# Leverage points
 leverage <- which(h_ii > hat_mean)
 
-#Influential points using COVRATIO
+# Influential points using COVRATIO
 influential <- which(covratio(model_men) > 1+3*p/n | covratio(model_men) < 1-3*p/n)
 
-#Influential + leverage points
+# Influential + leverage points
 lev_infl <- intersect(leverage, influential)
 
-#Residuals
+# Residuals
 res = residuals(model_men)
 MS_res = sum(res^2)/(n-p) 
 res_std   = res / sqrt(MS_res)
@@ -76,10 +74,10 @@ plot(res_press)
 jmf <- res - res_press
 plot(jmf)
 
-#Using this set of observation, manually look at each one to determine which are to be removed
+# Using this set of observation, manually look at each one to determine which are to be removed
 men <- men[-c(30, 124, 178),]
 
-#Fit linear model to reduced model
+# Fit linear model to reduced model
 model_men <- lm(density ~ ., data = men)
 anova(model_men)
 summary(model_men)
@@ -87,13 +85,13 @@ plot(model_men)
 studres(model_men)
 
 ### MULTICOLLINEARITY ###
-#Visualize correlation between different explanatory variables
+# Visualize correlation between different explanatory variables
 men %>%
   dplyr::select(age,weight,height,neck,chest,abdomen,hip,thigh,knee,ankle,biceps,forearm,wrist) %>%
   cor %>%
   corrplot.mixed()
 
-#Spectral Decmoposition
+# Spectral Decmoposition
 X <- data.matrix(men, rownames.force = NA)
 X_prim <- t(X)
 X_corr <- X_prim %*% X
@@ -102,7 +100,7 @@ lambda_max <- max(eigen$values)
 lambda_min <- min(eigen$values)
 k <- lambda_max %/% lambda_min
 
-#Calculate VIF (if VIF_j > 10, we have a problem)
+# Calculate VIF (if VIF_j > 10, we have a problem)
 vif <- vif(model_men)
 
 ### Model selection ###
