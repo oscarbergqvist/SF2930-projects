@@ -44,16 +44,6 @@ p = ncol(model_men$model) - 1
 h_ii = lm.influence(model_men)$hat
 hat_mean <- 2*p/n
 
-### Investigating points and residuals
-# Leverage points
-leverage <- which(h_ii > hat_mean)
-
-# Influential points using COVRATIO
-influential <- which(covratio(model_men) > 1+3*p/n | covratio(model_men) < 1-3*p/n)
-
-# Influential + leverage points
-lev_infl <- intersect(leverage, influential)
-
 # Residuals
 res = residuals(model_men)
 MS_res = sum(res^2)/(n-p) 
@@ -62,8 +52,7 @@ res_stud  = res / sqrt(MS_res*(1-h_ii))
 res_press = res / (1 - h_ii)
 S_sq = ((n-p)*MS_res - res^2/(1-h_ii)) / (n-p-1)
 res_rstud = res / sqrt(S_sq*(1-h_ii))
-res_studlib = studres(model_men)  
-# Why the difference between library stud and calculated stud residual
+res_studlib = studres(model_men)
 
 plot(res)
 plot(res_stud)
@@ -73,6 +62,16 @@ plot(res_press)
 
 jmf <- res - res_press
 plot(jmf)
+
+### Investigating points
+# Leverage points
+leverage <- which(h_ii > hat_mean)
+
+# Influential points using COVRATIO
+influential <- which(covratio(model_men) > 1+3*p/n | covratio(model_men) < 1-3*p/n)
+
+# Influential + leverage points
+lev_infl <- intersect(leverage, influential)
 
 # Using this set of observation, manually look at each one to determine which are to be removed
 men <- men[-c(30, 124, 178),]
@@ -85,6 +84,7 @@ plot(model_men)
 studres(model_men)
 
 ### MULTICOLLINEARITY ###
+
 # Visualize correlation between different explanatory variables
 men %>%
   dplyr::select(age,weight,height,neck,chest,abdomen,hip,thigh,knee,ankle,biceps,forearm,wrist) %>%
@@ -92,7 +92,7 @@ men %>%
   corrplot.mixed()
 
 # Spectral Decmoposition
-X <- data.matrix(men, rownames.force = NA)
+X <- data.matrix(men[c(-1)], rownames.force = NA)
 X_prim <- t(X)
 X_corr <- X_prim %*% X
 eigen <- eigen(X_corr, symmetric = TRUE, only.values = FALSE, EISPACK = FALSE)
@@ -104,12 +104,13 @@ k <- lambda_max %/% lambda_min
 vif <- vif(model_men)
 
 ### Model selection ###
+
 # Multikolinjäritet + model selection mha LEAPS
 y <- data.matrix(men[c(1)])
 x <- data.matrix(men[c(-1)])
 
-leaps <- leaps(x,y,method="Cp")
-plot(rowSums(leaps$which,2), leaps$Cp, xlim = c(3,6), ylim = c(3,6))
+leaps <- leaps(x, y, method="Cp")
+plot(rowSums(leaps$which,2), leaps$Cp, xlim = c(0,14), ylim = c(0,14))
 abline(0, 1)
 text(rowSums(leaps$which,2), leaps$Cp, 1:length(rowSums(leaps$which,2))) # Kandidater: nr. 32, 48
 
@@ -124,12 +125,28 @@ studres(model_men_Cp)
 y <- as.matrix(men[c(1)])
 x <- as.matrix(men[c(-1)])
 
-cv_lasso <- cv.glmnet(x, y, alpha = 1, nfolds = 10)
-plot(cv_lasso)
-coef(cv_lasso, s = "lambda.min")    #pröva även med s = "lambda.1se"
+# Välj optimala lambda genom att iterera 100 ggr över 10-fold modeller
+lambdas = NULL
+for (i in 1:5)
+{
+  fit <- cv.glmnet(x, y, alpha = 1, nfolds = 10) 
+  errors = data.frame(fit$lambda, fit$cvm)
+  lambdas <- rbind(lambdas, errors)
+  print("*")
+}
+# take mean cvm for each lambda
+lambdas <- aggregate(lambdas[, 2], list(lambdas$fit.lambda), mean)
 
-# Still, this package deliberately does not provide them. The reason for this is that standard 
-# errors are not very meaningful for strongly biased estimates such as arise from penalized 
-# estimation methods. Penalized estimation is a procedure that reduces the variance of estimators 
-# by introducing substantial bias. The bias of each estimator is therefore a major component of 
-# its mean squared error, whereas its variance may contribute only a small part.
+# select the best one
+bestindex = which(lambdas[2]==min(lambdas[2]))
+bestlambda = lambdas[bestindex,1]
+
+# and now run glmnet once more with it
+lasso <- glmnet(x, y, alpha = 1, lambda=bestlambda)
+pfit <- predict.glmnet(lasso, x, s = 0, type="response")
+plot(pfit,y)
+
+r2_lasso <- lasso$dev.ratio
+
+model_men <- fit 
+### Hur ska vi jämföra våra två modeller?
