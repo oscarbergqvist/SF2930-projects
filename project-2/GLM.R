@@ -5,6 +5,8 @@ library(ggplot2)
 library(foreach)
 library(xlsx)
 
+setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-2")
+
 ######################### Section 1: Read data #########################
 
 # This is where your GLM data is read form tractors.csv into a table in R 
@@ -27,6 +29,11 @@ glmdata$weight_group <- cut(glmdata$Weight,
                        labels = c("01_<1000kg", "02_1000-1999kg", "03_2000-2999kg", "04_3000-3999kg", "05_4000-4999kg", "06_>=5000kg"), 
                        right = FALSE)
 
+glmdata$age_group <- cut(glmdata$VehicleAge, 
+                         breaks = c(-Inf, 5, 15, 25, 35, 50, Inf), 
+                         labels = c("01_<5yr", "02_5-15yr", "03_15-25yr", "04_25-35yr", "05_35-50yr", "06_>=50yr"), 
+                         right = FALSE)
+
 # Secondly, we want to aggregate the data.
 # That is, instead of having one row per tractor, we want one row for each existing combination of variables 
 # This code aggregates columns 6-8 of glmdata, by three variables: weight_group, Climate, and ActivityCode 
@@ -34,6 +41,7 @@ glmdata$weight_group <- cut(glmdata$Weight,
 ##### You need to consider if there are any other variables you want to aggregate by, and modify the code accordingly 
 
 glmdata2 <- aggregate(glmdata[,6:8],by=list(weight_group = glmdata$weight_group, 
+                                            age_group = glmdata$age_group,
                                             Climate = glmdata$Climate,
                                             ActivityCode = glmdata$ActivityCode), FUN=sum, na.rm=TRUE)
 
@@ -45,15 +53,17 @@ glmdata3 <-
   data.frame(rating.factor =
                c(rep("Weight", nlevels(glmdata2$weight_group)),
                  rep("Climate", nlevels(glmdata2$Climate)),
-                 rep("ActivityCode", nlevels(glmdata2$ActivityCode))),
+                 rep("ActivityCode", nlevels(glmdata2$ActivityCode)),
+                 rep("Age", nlevels(glmdata2$age_group))),
              class =
                c(levels(glmdata2$weight_group),
                  levels(glmdata2$Climate),
-                 levels(glmdata2$ActivityCode)),
+                 levels(glmdata2$ActivityCode),
+                 levels(glmdata2$age_group)),
              stringsAsFactors = FALSE)
 
 new.cols <-
-  foreach (rating.factor = c("weight_group", "Climate", "ActivityCode"),
+  foreach (rating.factor = c("weight_group", "Climate", "ActivityCode", "age_group"),
            .combine = rbind) %do%
            {
              nclaims <- tapply(glmdata2$NoOfClaims, glmdata2[[rating.factor]], sum)

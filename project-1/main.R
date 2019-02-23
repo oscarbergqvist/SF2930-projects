@@ -32,6 +32,7 @@ setwd("C:/Users/NextLevel/Desktop/SF2930-projects/project-1")
     
 # Read data and fit linear model to data
 men <- read.csv("train.csv")
+men_test <- read.csv("test.csv")
 men$X <- NULL
 model_men <- lm(density ~ ., data = men)
 anova(model_men)
