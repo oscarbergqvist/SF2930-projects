@@ -40,6 +40,7 @@ glmdata$age_group <- cut(glmdata$VehicleAge,
 # Tha aggregated data is stored in a new table, glmdata2 
 ##### You need to consider if there are any other variables you want to aggregate by, and modify the code accordingly 
 
+# Det enda man behöver öndra här är s.a. man skickar med den nya feature:n
 glmdata2 <- aggregate(glmdata[,6:8],by=list(weight_group = glmdata$weight_group, 
                                             age_group = glmdata$age_group,
                                             Climate = glmdata$Climate,
@@ -62,6 +63,8 @@ glmdata3 <-
                  levels(glmdata2$age_group)),
              stringsAsFactors = FALSE)
 
+# nclaims: antalet claims för traktorer som uppfyller radegenskapen
+# sums: summan av försäkringstiden för traktorer som uppfyller radegenskapen
 new.cols <-
   foreach (rating.factor = c("weight_group", "Climate", "ActivityCode", "age_group"),
            .combine = rbind) %do%
@@ -69,8 +72,7 @@ new.cols <-
              nclaims <- tapply(glmdata2$NoOfClaims, glmdata2[[rating.factor]], sum)
              sums <- tapply(glmdata2$Duration, glmdata2[[rating.factor]], sum)
              n.levels <- nlevels(glmdata2[[rating.factor]])
-             contrasts(glmdata2[[rating.factor]]) <-
-               contr.treatment(n.levels)[rank(-sums, ties.method = "first"), ]
+             contrasts(glmdata2[[rating.factor]]) <- contr.treatment(n.levels)[rank(-sums, ties.method = "first"), ]
              data.frame(duration = sums, n.claims = nclaims)
            }
 glmdata3 <- cbind(glmdata3, new.cols)
@@ -85,7 +87,7 @@ rm(new.cols)
 ##### This is where you can modify the model by adding or removing variables 
 
 model.frequency <-
-  glm(NoOfClaims ~ weight_group + Climate + ActivityCode + offset(log(Duration)),
+  glm(NoOfClaims ~ weight_group + Climate + ActivityCode + age_group + offset(log(Duration)),
       data = glmdata2, family = poisson)
 
 # Then we save the coefficients resulting from the GLM analysis in an array
@@ -102,11 +104,13 @@ rels <- exp(rels[1] + rels[-1])/exp(rels[1])
 # After that, it does the same thing for the rest of the GLM coefficients, belonging to climate and activity code vairables.
 ##### You need to modify this code to suit your set of variables and groups, to make sure each GLM coefficient is saved in the correct place.
 
+######## HÄR MÅSTE MAN ÄNDRA MANUELLT, ALLTID!!!!!!!!!!
 
 glmdata3$rels.frequency <-
   c(c(1, rels[1:5])[rank(-glmdata3$duration[1:6], ties.method = "first")],
     c(1, rels[6:7])[rank(-glmdata3$duration[7:9], ties.method = "first")],
-    c(1, rels[8:17])[rank(-glmdata3$duration[10:20], ties.method = "first")])
+    c(1, rels[8:17])[rank(-glmdata3$duration[10:20], ties.method = "first")],
+    c(1, rels[18:22])[rank(-glmdata3$duration[21:26], ties.method = "first")])
 
 
 # We then do the same thing again, now modelling severity instead of claim frequency.
@@ -121,7 +125,7 @@ glmdata2$avgclaim=glmdata2$ClaimCost/glmdata2$NoOfClaims
 ##### Remember that, according to the project instructions, you need to use the same variables for the severity as for the frequency.
 
 model.severity <-
-  glm(avgclaim ~ weight_group + Climate + ActivityCode ,
+  glm(avgclaim ~ weight_group + Climate + ActivityCode + age_group,
       data = glmdata2[glmdata2$avgclaim>0,], family = Gamma("log"), weight=NoOfClaims)
 
 rels <- coef(model.severity)
@@ -129,7 +133,8 @@ rels <- exp( rels[1] + rels[-1] ) / exp( rels[1] )
 glmdata3$rels.severity <-
   c(c(1, rels[1:5])[rank(-glmdata3$duration[1:6], ties.method = "first")],
     c(1, rels[6:7])[rank(-glmdata3$duration[7:9], ties.method = "first")],
-    c(1, rels[8:17])[rank(-glmdata3$duration[10:20], ties.method = "first")])
+    c(1, rels[8:17])[rank(-glmdata3$duration[10:20], ties.method = "first")],
+    c(1, rels[18:22])[rank(-glmdata3$duration[21:26], ties.method = "first")])
 
 # Finally, the final risk factor is calculated, as the product of the frequency and severity factors. 
 ##### You should not have to modify this coed.
