@@ -139,19 +139,16 @@ bestglm_data_freq <- within(glmdata2, {
   NoOfClaims  <- NULL         
 })
 
-bestglm_data_freq <-
-  bestglm_data_freq[, c("weight_group", "Climate","ActivityCode","age_group","y")]
+bestglm_data_freq <- bestglm_data_freq[, c("weight_group", "Climate","ActivityCode","age_group","y")]
 
 bestglm_freq <-
   bestglm(Xy = bestglm_data_freq,
           offset(log(glmdata2$Duration)),
           family = poisson,
-          IC = "AIC",                 
+          IC = "BIC",                 
           method = "exhaustive")
 
-bestmodel_freq = bestglm_freq$BestModel
-rels_bestmodel_freq = coef(bestmodel_freq)
-rels_bestmodel_freq = exp(rels_bestmodel_freq[1] + rels_bestmodel_freq[-1]) / exp(rels_bestmodel_freq[1])
+rels_bestmodel_freq = exp(coef(bestglm_freq$BestModel)[-1])
 
 glmdata3$rels.frequency <-   c(ifelse(rep(bestglm_freq$BestModels$weight_group[1], nlevels(glmdata2$weight_group)), 
                                       c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("weight_group", ignore.case = TRUE))]), 
@@ -174,20 +171,16 @@ bestglm_data_sev <- within(glmdata2, {
   NoOfClaims <- NULL
   ClaimCost <- NULL       
 })
-bestglm_data_sev <- bestglm_data_sev[which(bestglm_data_sev$y>0),]
-bestglm_data_sev <-
-  bestglm_data_sev[, c("weight_group", "Climate","ActivityCode","age_group","y")]
+bestglm_data_sev <- bestglm_data_sev[which(bestglm_data_sev$y>0), c("weight_group", "Climate","ActivityCode","age_group","y")]
 
 bestglm_sev <-
   bestglm(Xy = bestglm_data_sev,
           family = Gamma("log"),
           #weights = glmdata2$NoOfClaims[which(glmdata2$y>0)],
-          IC = "AIC",                 
+          IC = "BIC",                 
           method = "exhaustive")
 
-bestmodel_sev = bestglm_sev$BestModel
-rels_bestmodel_sev = coef(bestmodel_sev)
-rels_bestmodel_sev = exp(rels_bestmodel_sev[1] + rels_bestmodel_sev[-1]) / exp(rels_bestmodel_sev[1])
+rels_bestmodel_sev = exp(coef(bestglm_sev$BestModel)[-1])
 
 glmdata3$rels.severity <-   c(ifelse(rep(bestglm_sev$BestModels$weight_group[1], nlevels(glmdata2$weight_group)), 
                                      c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
