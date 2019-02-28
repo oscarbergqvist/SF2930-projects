@@ -50,9 +50,10 @@ glmdata$weight_group <- cut(glmdata$Weight,
 
 glmdata$age_group <- cut(glmdata$VehicleAge, 
                             breaks = c(-Inf, 3, 6, 15, Inf), 
-                            labels = c("01_<3years", "02_3-5years", "03_6-14years", "04_>14years"), 
+                            labels = c("01_<3years", "02_3-5years", "03_6-14years", "04_>15years"), 
                             right = FALSE)
 
+  
 # Secondly, we want to aggregate the data.
 # That is, instead of having one row per tractor, we want one row for each existing combination of variables 
 # This code aggregates columns 6-8 of glmdata, by three variables: weight_group, Climate, and ActivityCode 
@@ -152,15 +153,18 @@ bestmodel_freq = bestglm_freq$BestModel
 rels_bestmodel_freq = coef(bestmodel_freq)
 rels_bestmodel_freq = exp(rels_bestmodel_freq[1] + rels_bestmodel_freq[-1]) / exp(rels_bestmodel_freq[1])
 
-wgt <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("weight_group", ignore.case = TRUE))])
-cli <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("Climate", ignore.case = TRUE))])
-act <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("ActivityCode", ignore.case = TRUE))])
-age <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("Age", ignore.case = TRUE))])
-glmdata3$rels.frequency <-   c(wgt, 
-                              cli,
-                              act, 
-                              age)
-rm(wgt, cli, act, age)
+glmdata3$rels.frequency <-   c(ifelse(rep(bestglm_freq$BestModels$weight_group[1], nlevels(glmdata2$weight_group)), 
+                                      c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("weight_group", ignore.case = TRUE))]), 
+                                      rep(1, nlevels(glmdata2$weight_group))), 
+                               ifelse(rep(bestglm_freq$BestModels$Climate[1], nlevels(glmdata2$Climate)), 
+                                      c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("Climate", ignore.case = TRUE))]),
+                                      rep(1, nlevels(glmdata2$Climate))),
+                               ifelse(rep(bestglm_freq$BestModels$ActivityCode[1], nlevels(glmdata2$ActivityCode)), 
+                                      c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("ActivityCode", ignore.case = TRUE))]), 
+                                      rep(1, nlevels(glmdata2$ActivityCode))), 
+                               ifelse(rep(bestglm_freq$BestModels$age_group[1], nlevels(glmdata2$age_group)), 
+                                      c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("Age", ignore.case = TRUE))]), 
+                                      rep(1, nlevels(glmdata2$age_group))))
 
 
 #CLAIM SEVERITY
@@ -185,20 +189,23 @@ bestmodel_sev = bestglm_sev$BestModel
 rels_bestmodel_sev = coef(bestmodel_sev)
 rels_bestmodel_sev = exp(rels_bestmodel_sev[1] + rels_bestmodel_sev[-1]) / exp(rels_bestmodel_sev[1])
 
-wgt <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
-                                                starts_with("weight_group", ignore.case = TRUE))])
-cli <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
-                                                 starts_with("Climate", ignore.case = TRUE))])
-act <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
-                                                  starts_with("ActivityCode", ignore.case = TRUE))])
-age <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
-                                             starts_with("Age", ignore.case = TRUE))])
+glmdata3$rels.severity <-   c(ifelse(rep(bestglm_sev$BestModels$weight_group[1], nlevels(glmdata2$weight_group)), 
+                                     c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                                                         starts_with("weight_group", ignore.case = TRUE))]), 
+                                     rep(1, nlevels(glmdata2$weight_group))), 
+                              ifelse(rep(bestglm_sev$BestModels$Climate[1], nlevels(glmdata2$Climate)), 
+                                     c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                                                         starts_with("Climate", ignore.case = TRUE))]),
+                                     rep(1, nlevels(glmdata2$Climate))),
+                              ifelse(rep(bestglm_sev$BestModels$ActivityCode[1], nlevels(glmdata2$ActivityCode)), 
+                                     c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                                                         starts_with("ActivityCode", ignore.case = TRUE))]), 
+                                     rep(1, nlevels(glmdata2$ActivityCode))), 
+                              ifelse(rep(bestglm_sev$BestModels$age_group[1], nlevels(glmdata2$age_group)), 
+                                     c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                                                         starts_with("Age", ignore.case = TRUE))]), 
+                                     rep(1, nlevels(glmdata2$age_group))))
 
-glmdata3$rels.severity <-   c(wgt, 
-                              c(1, 1, 1),
-                              act, 
-                              c(1, 1, 1, 1))
-rm(wgt, cli, act, age)
 
 ## RISK
 glmdata3$rels.risk <- with(glmdata3, rels.frequency*rels.severity)
