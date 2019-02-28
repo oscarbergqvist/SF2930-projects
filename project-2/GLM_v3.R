@@ -1,8 +1,3 @@
-install.packages("ggplot2")
-install.packages("foreach")
-install.packages("xlsx")
-install.packages("glmnet")
-
 setwd("C:/Users/Oscar Bergqvist/Desktop/SF2930-regression")
 source("multiplot.R")
 
@@ -10,6 +5,7 @@ library(ggplot2)
 library(foreach)
 library(xlsx)
 library(glmnet)
+library(bestglm)
 
 ######################### Section 1: Read data #########################
 
@@ -18,6 +14,24 @@ library(glmnet)
 ###### You do not need to change anything in this section. The data will be sotred in a table named glmdata
 
 glmdata <- read.table("Tractors.csv", header=TRUE, sep=";", dec="," )
+
+### GROUP SELECTION ### 
+
+riskdata <- within(glmdata, {
+  risk <- ClaimCost / Duration
+  Duration   <- NULL        
+  ClaimCost  <- NULL
+  NoOfClaims <- NULL
+  RiskYear <- NULL
+})
+riskdata <- riskdata[which(riskdata$risk > 0),]
+
+plot(riskdata$Weight, riskdata$risk, xaxp = c(0, 15000, 30))
+plot(riskdata$VehicleAge, riskdata$risk, xlim = c(1,30), xaxp = c(0, 30, 30))
+
+
+
+
 
 ######################### Section 2: Create groups & aggregate data #########################
 
@@ -30,8 +44,8 @@ glmdata <- read.table("Tractors.csv", header=TRUE, sep=";", dec="," )
 ###### You might also want to group other variables from glmdata, in a similar manner
 
 glmdata$weight_group <- cut(glmdata$Weight, 
-                       breaks = c(-Inf, 1000, 2000, 3000, 4000, 5000, Inf), 
-                       labels = c("01_<1000kg", "02_1000-1999kg", "03_2000-2999kg", "04_3000-3999kg", "05_4000-4999kg", "06_>=5000kg"), 
+                       breaks = c(-Inf, 500, 2000, 5000, 6500, Inf), 
+                       labels = c("01_<499kg", "02_500-1999kg", "03_2000-4999kg", "04_5000-6499kg", "05_>6500kg"), 
                        right = FALSE)
 
 glmdata$age_group <- cut(glmdata$VehicleAge, 
@@ -49,6 +63,25 @@ glmdata2 <- aggregate(glmdata[,6:8],by=list(weight_group = glmdata$weight_group,
                                             Climate = glmdata$Climate,
                                             ActivityCode = glmdata$ActivityCode,
                                             age_group = glmdata$age_group), FUN=sum, na.rm=TRUE)
+
+
+
+### GROUP SELECTION VERIFICATION ### 
+
+riskdata2 <- within(glmdata2, {
+  risk <- ClaimCost / Duration
+  Duration   <- NULL        
+  ClaimCost  <- NULL
+  NoOfClaims <- NULL
+})
+riskdata2 <- riskdata2[which(riskdata2$risk > 0),]
+
+plot(riskdata2$weight_group, riskdata2$risk)
+plot(riskdata2$Climate, riskdata2$risk)
+plot(riskdata2$ActivityCode, riskdata2$risk)
+plot(riskdata2$age_group, riskdata2$risk)
+
+
 
 # We then do some preparation for the output the GLM function will give.
 # This piece of code creates a new table, glmdata3, with a row per variable and group, and with data on the total duration corresponding to this group.
@@ -117,7 +150,18 @@ bestglm_freq <-
 
 bestmodel_freq = bestglm_freq$BestModel
 rels_bestmodel_freq = coef(bestmodel_freq)
-rels_bestglm_freq = exp(rels_bestmodel_freq[1] + rels_bestmodel_freq[-1]) / exp(rels_bestmodel_freq[1])
+rels_bestmodel_freq = exp(rels_bestmodel_freq[1] + rels_bestmodel_freq[-1]) / exp(rels_bestmodel_freq[1])
+
+wgt <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("weight_group", ignore.case = TRUE))])
+cli <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("Climate", ignore.case = TRUE))])
+act <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("ActivityCode", ignore.case = TRUE))])
+age <- c(1, rels_bestmodel_freq[select_vars(names(rels_bestmodel_freq), starts_with("Age", ignore.case = TRUE))])
+glmdata3$rels.frequency <-   c(wgt, 
+                              cli,
+                              act, 
+                              age)
+rm(wgt, cli, act, age)
+
 
 #CLAIM SEVERITY
 bestglm_data_sev <- within(glmdata2, {
@@ -141,81 +185,102 @@ bestmodel_sev = bestglm_sev$BestModel
 rels_bestmodel_sev = coef(bestmodel_sev)
 rels_bestmodel_sev = exp(rels_bestmodel_sev[1] + rels_bestmodel_sev[-1]) / exp(rels_bestmodel_sev[1])
 
+wgt <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                                starts_with("weight_group", ignore.case = TRUE))])
+cli <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                                 starts_with("Climate", ignore.case = TRUE))])
+act <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                                  starts_with("ActivityCode", ignore.case = TRUE))])
+age <- c(1, rels_bestmodel_sev[select_vars(names(rels_bestmodel_sev), 
+                                             starts_with("Age", ignore.case = TRUE))])
+
+glmdata3$rels.severity <-   c(wgt, 
+                              c(1, 1, 1),
+                              act, 
+                              c(1, 1, 1, 1))
+rm(wgt, cli, act, age)
+
+## RISK
+glmdata3$rels.risk <- with(glmdata3, rels.frequency*rels.severity)
+
+
 ######################### Section 3: GLM analysis #########################
-
-# Now we get to the fun part - the GLM analysis. It is performed using R's built in GLM function 
-
-# First, we model the claims frequency. 
-# The first part of this performs a GLM analysis, with glmdata2 as the data source modelling NoOfClaims, by the Duration. It looks at three variables: weight_group, Climate, and ActivityCode.
-##### This is where you can modify the model by adding or removing variables 
-
-model.frequency <-
-  glm(NoOfClaims ~ weight_group + Climate + ActivityCode + age_group + offset(log(Duration)),
-      data = glmdata2, family = poisson)
-
-# Then we save the coefficients resulting from the GLM analysis in an array
-##### You should not need to modify this part of the code
-
-rels <- coef(model.frequency)
-rels <- exp(rels[1] + rels[-1])/exp(rels[1])
-
-# Finally, we attach the coefficients to the already prepared table glmdata3, in a column named rels.frequency
-# There is no good way of doing this automatically, so we need to do some manual tricks
-# This code creates a vector with 6 positions consisting of the integer 1, and then positions number 1-5 in the rels array.
-# Then it attaches this to rows 1-6 of glmdata3, sorted from highest to lowest duration, since the GLM data is on this form.
-# In other words, the code takes the GLM coeffisients for the six weight groups and saves those in glmdata3, in the rows corresponding to those groups.
-# After that, it does the same thing for the rest of the GLM coefficients, belonging to climate and activity code vairables.
-##### You need to modify this code to suit your set of variables and groups, to make sure each GLM coefficient is saved in the correct place.
-
-##### You need to modify this code
-variableLevels <- c(nlevels(glmdata2[["weight_group"]]),
-                 nlevels(glmdata2[["Climate"]]),
-                 nlevels(glmdata2[["ActivityCode"]]),
-                 nlevels(glmdata2[["age_group"]]))
-
-#You do not need to modify this part
-cs <- cumsum(variableLevels)
-cs_rels <- cs
-for(i in 1:length(variableLevels)){
-  cs_rels[i] <- cs[i]-i
-}
-
-# The following code needs to be used at two different places so we put it in a function.
-##### This part needs to be modified if you change which variables are included in the model, but not if you change the groups inside a variable
-attachRels <- function(rels_vec, vector, cs, cs_rels) {
-  c(c(1, rels_vec[ 1 : cs_rels[1] ])[rank(-vector[ 1 : cs[1] ], ties.method = "first")],
-    c(1, rels_vec[ (cs_rels[1]+1) : cs_rels[2] ])[rank(-vector[ (cs[1]+1) : cs[2] ], ties.method = "first")],
-    c(1, rels_vec[ (cs_rels[2]+1) : cs_rels[3] ])[rank(-vector[ (cs[2]+1) : cs[3] ], ties.method = "first")],
-    c(1, rels_vec[ (cs_rels[3]+1) : cs_rels[4] ])[rank(-vector[ (cs[3]+1) : cs[4] ], ties.method = "first")])
-}
-
-# Use the function created above, you do not need to modify this part
-glmdata3$rels.frequency <- attachRels(rels, glmdata3$duration, cs, cs_rels)
-
-# We then do the same thing again, now modelling severity instead of claim frequency.
-# That means that, in this part, we want to look at the average claim. So first, we calculate the average claim for each row in glmdata2
-##### You should not need to change anything in this piece of code.
-
-glmdata2$avgclaim=glmdata2$ClaimCost/glmdata2$NoOfClaims
-
-# Then we do the same thing as we did when modelling claims frequency, but we look at average claim;
-# A GLM analysis is run, the coefficients stored, and saved in a new column, named rels.severity, glmdata3
-##### You need to modify this part of the code in the same way as you did for the GLM model for frequency.  Add or remove variables
-##### Remember that, according to the project instructions, you need to use the same variables for the severity as for the frequency.
-
-model.severity <-
-  glm(avgclaim ~ weight_group + Climate + ActivityCode + age_group,
-      data = glmdata2[which(glmdata2$avgclaim>0),], family = Gamma("log"), weight=NoOfClaims)
-
-# You do not need to change this part
-rels <- coef(model.severity)
-rels <- exp( rels[1] + rels[-1] ) / exp( rels[1] )
-glmdata3$rels.severity <- attachRels(rels, glmdata3$duration, cs, cs_rels)
+# 
+# # Now we get to the fun part - the GLM analysis. It is performed using R's built in GLM function 
+# 
+# # First, we model the claims frequency. 
+# # The first part of this performs a GLM analysis, with glmdata2 as the data source modelling NoOfClaims, by the Duration. It looks at three variables: weight_group, Climate, and ActivityCode.
+# ##### This is where you can modify the model by adding or removing variables 
+# 
+# model.frequency <-
+#   glm(NoOfClaims ~ weight_group + Climate + ActivityCode + age_group + offset(log(Duration)),
+#       data = glmdata2, family = poisson)
+# 
+# # Then we save the coefficients resulting from the GLM analysis in an array
+# ##### You should not need to modify this part of the code
+# 
+# rels <- coef(model.frequency)
+# rels <- exp(rels[1] + rels[-1])/exp(rels[1])
+# 
+# # Finally, we attach the coefficients to the already prepared table glmdata3, in a column named rels.frequency
+# # There is no good way of doing this automatically, so we need to do some manual tricks
+# # This code creates a vector with 6 positions consisting of the integer 1, and then positions number 1-5 in the rels array.
+# # Then it attaches this to rows 1-6 of glmdata3, sorted from highest to lowest duration, since the GLM data is on this form.
+# # In other words, the code takes the GLM coeffisients for the six weight groups and saves those in glmdata3, in the rows corresponding to those groups.
+# # After that, it does the same thing for the rest of the GLM coefficients, belonging to climate and activity code vairables.
+# ##### You need to modify this code to suit your set of variables and groups, to make sure each GLM coefficient is saved in the correct place.
+# 
+# ##### You need to modify this code
+# variableLevels <- c(nlevels(glmdata2[["weight_group"]]),
+#                  nlevels(glmdata2[["Climate"]]),
+#                  nlevels(glmdata2[["ActivityCode"]]),
+#                  nlevels(glmdata2[["age_group"]]))
+# 
+# 
+# 
+# #You do not need to modify this part
+# cs <- cumsum(variableLevels)
+# cs_rels <- cs
+# for(i in 1:length(variableLevels)){
+#   cs_rels[i] <- cs[i]-i
+# }
+# 
+# # The following code needs to be used at two different places so we put it in a function.
+# ##### This part needs to be modified if you change which variables are included in the model, but not if you change the groups inside a variable
+# attachRels <- function(rels_vec, vector, cs, cs_rels) {
+#   c(c(1, rels_vec[ 1 : cs_rels[1] ])[rank(-vector[ 1 : cs[1] ], ties.method = "first")],
+#     c(1, rels_vec[ (cs_rels[1]+1) : cs_rels[2] ])[rank(-vector[ (cs[1]+1) : cs[2] ], ties.method = "first")],
+#     c(1, rels_vec[ (cs_rels[2]+1) : cs_rels[3] ])[rank(-vector[ (cs[2]+1) : cs[3] ], ties.method = "first")],
+#     c(1, rels_vec[ (cs_rels[3]+1) : cs_rels[4] ])[rank(-vector[ (cs[3]+1) : cs[4] ], ties.method = "first")])
+# }
+# 
+# # Use the function created above, you do not need to modify this part
+# glmdata3$rels.frequency <- attachRels(rels, glmdata3$duration, cs, cs_rels)
+# 
+# # We then do the same thing again, now modelling severity instead of claim frequency.
+# # That means that, in this part, we want to look at the average claim. So first, we calculate the average claim for each row in glmdata2
+# ##### You should not need to change anything in this piece of code.
+# 
+# glmdata2$avgclaim=glmdata2$ClaimCost/glmdata2$NoOfClaims
+# 
+# # Then we do the same thing as we did when modelling claims frequency, but we look at average claim;
+# # A GLM analysis is run, the coefficients stored, and saved in a new column, named rels.severity, glmdata3
+# ##### You need to modify this part of the code in the same way as you did for the GLM model for frequency.  Add or remove variables
+# ##### Remember that, according to the project instructions, you need to use the same variables for the severity as for the frequency.
+# 
+# model.severity <-
+#   glm(avgclaim ~ weight_group + Climate + ActivityCode + age_group,
+#       data = glmdata2[which(glmdata2$avgclaim>0),], family = Gamma("log"), weight=NoOfClaims)
+# 
+# # You do not need to change this part
+# rels <- coef(model.severity)
+# rels <- exp( rels[1] + rels[-1] ) / exp( rels[1] )
+# glmdata3$rels.severity <- attachRels(rels, glmdata3$duration, cs, cs_rels)
 
 # Finally, the final risk factor is calculated, as the product of the frequency and severity factors. 
 ##### You should not have to modify this coed.
 ##### Congratulations! You now have a model for the risk!
-glmdata3$rels.risk <- with(glmdata3, rels.frequency*rels.severity)
+# glmdata3$rels.risk <- with(glmdata3, rels.frequency*rels.severity)
 
 ######################### Section 4: Plotting #########################
 
