@@ -128,7 +128,7 @@ x <- as.matrix(men[c(-1)])
 
 # Välj optimala lambda genom att iterera 100 ggr över 10-fold modeller
 lambdas = NULL
-for (i in 1:5)
+for (i in 1:50)
 {
   fit <- cv.glmnet(x, y, alpha = 1, nfolds = 10) 
   errors = data.frame(fit$lambda, fit$cvm)
@@ -144,10 +144,21 @@ bestlambda = lambdas[bestindex,1]
 
 # and now run glmnet once more with it
 lasso <- glmnet(x, y, alpha = 1, lambda=bestlambda)
-pfit <- predict.glmnet(lasso, x, s = 0, type="response")
+pfit <- predict.glmnet(lasso, x[1:5,], s = 0, type="response")
 plot(pfit,y)
 
 r2_lasso <- lasso$dev.ratio
 
 model_men <- fit 
 ### Hur ska vi jämföra våra två modeller?
+
+#Predict:a på första modellen (all possible regressions)
+p_apr <- predict(model_men_Cp, men_test)
+
+x.test <- model.matrix(density ~ ., men_test)[,-1]
+pred <- predict(lasso, type='response', newx=x.test)
+
+men_test$density <- NULL
+X <- data.matrix(men_test)
+
+pfit <- predict.glmnet(lasso, X, s = 0, type="response")
