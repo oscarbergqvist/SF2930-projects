@@ -69,6 +69,7 @@ plot(res$res_rstud)
 plot(res$res_press)
 jmf <- res$res - res$res_press
 plot(jmf)
+which(jmf>0.002)  #149, 178
 
 ### Investigating points ###
 
@@ -84,7 +85,8 @@ leverage <- which(h_ii > hat_mean)
 influential <- which(covratio(model_men) > 1+3*p/n | covratio(model_men) < 1-3*p/n)
 
 # Influential + leverage points
-lev_infl <- intersect(leverage, influential)
+lev_infl <- intersect(leverage, influential) 
+#30, 53, 124, 143, 144, 149, 158, 168, 178
 
 # Using this set of observation, manually look at each one to determine which are to be removed
 men <- men[-c(30, 124, 178),]
