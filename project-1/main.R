@@ -10,6 +10,7 @@ setwd("/Users/Jessika/Documents/GitHub/SF2930-projects/project-1")
 setwd("C:/Users/NextLevel/Desktop/SF2930-projects/project-1")
 setwd("C:/Users/Oscar Bergqvist/Desktop/SF2930-projects/project-1")
 
+
 SI <- function(men){
   men$weight <- c(0.001*453.6*men$weight)
   men$height <- c(2.54*0.01*men$height)
@@ -26,7 +27,7 @@ SI <- function(men){
   return(men)
 }
 
-res <- function(model_men) {
+res_fun <- function(model_men) {
   n = nrow(model_men$model)
   p = ncol(model_men$model) - 1
   h_ii = lm.influence(model_men)$hat
@@ -45,6 +46,15 @@ res <- function(model_men) {
               "res_press"=res_press))
 }
 
+R_sq_fun <- function(fit, x, y){
+  SS_res <- sum((y-fit)^2)
+  SS_R <- sum((fit-mean(y))^2)
+  SS_T <- SS_R + SS_res
+  return(SS_R / SS_T)
+}
+
+
+
 # Read data 
 men <- read.csv("train.csv")
 men_test <- read.csv("test.csv")
@@ -62,7 +72,7 @@ summary(model_men)
 plot(model_men)
 
 ### Residual analysis on the full model ###
-res <- res(model_men)
+res <- res_fun(model_men)
 plot(res$res)
 plot(res$res_stud)
 plot(res$res_rstud)
@@ -96,15 +106,23 @@ model_men <- lm(density ~ ., data = men)
 anova(model_men)
 summary(model_men)
 plot(model_men)
-studres(model_men)
+
+res <- res_fun(model_men)
+plot(res$res)
+plot(res$res_stud)
+plot(res$res_rstud)
+plot(res$res_press)
+jmf <- res$res - res$res_press
+plot(jmf)
+which(jmf>0.002)
 
 ### MULTICOLLINEARITY ###
 
 # Visualize correlation between different explanatory variables
-men %>%
-  dplyr::select(age,weight,height,neck,chest,abdomen,hip,thigh,knee,ankle,biceps,forearm,wrist) %>%
-  cor %>%
-  corrplot.mixed()
+# men %>%
+#   dplyr::select(age,weight,height,neck,chest,abdomen,hip,thigh,knee,ankle,biceps,forearm,wrist) %>%
+#   cor %>%
+#   corrplot.mixed()
 
 # Spectral Decmoposition
 X <- data.matrix(men[c(-1)], rownames.force = NA)
@@ -124,9 +142,7 @@ vif <- vif(model_men)
 # Multikolinjäritet + model selection mha LEAPS
 y <- data.matrix(men[c(1)])
 x <- data.matrix(men[c(-1)])
-
 leaps <- leaps(x, y, method="adjr2", nbest = 1)
-
 fold_width <- floor(nrow(men)/10)
 adjR_sq_models <- NULL
 for(model_ind in 1:13){
@@ -153,74 +169,118 @@ best_model <- leaps$which[which.max(adjR_sq_models),]
 best_model <- lm(formula(men[c(TRUE, best_model)]), data = men)
 
 
-# CP 
-y <- data.matrix(men[c(1)])
-x <- data.matrix(men[c(-1)])
-leaps <- leaps(x, y, method="Cp")
-plot(rowSums(leaps$which,2), leaps$Cp, xlim = c(0,14), ylim = c(0,14))
-abline(0, 1)
-text(rowSums(leaps$which,2), leaps$Cp, 1:length(rowSums(leaps$which,2))) # Kandidater: nr. 32, 48
-
-# Vi prövar nr 32
-model_men_Cp <- lm(density ~ weight + abdomen + biceps + wrist, data = men)
-anova(model_men_Cp)
-summary(model_men_Cp)
-plot(model_men_Cp)
-studres(model_men_Cp) 
+# # CP 
+# y <- data.matrix(men[c(1)])
+# x <- data.matrix(men[c(-1)])
+# leaps <- leaps(x, y, method="Cp")
+# plot(rowSums(leaps$which,2), leaps$Cp, xlim = c(0,14), ylim = c(0,14))
+# abline(0, 1)
+# text(rowSums(leaps$which,2), leaps$Cp, 1:length(rowSums(leaps$which,2))) # Kandidater: nr. 32, 48
+# 
+# # Vi prövar nr 32
+# model_men_Cp <- lm(density ~ weight + abdomen + biceps + wrist, data = men)
+# anova(model_men_Cp)
+# summary(model_men_Cp)
+# plot(model_men_Cp)
+# studres(model_men_Cp) 
 
 # Multikolinjäritet + model selection mha LASSO
 y <- as.matrix(men[c(1)])
 x <- as.matrix(men[c(-1)])
 
-# Välj optimala lambda genom att iterera 100 ggr över 10-fold modeller
-lambdas = NULL
-for (i in 1:50)
-{
-  fit <- cv.glmnet(x, y, alpha = 1, nfolds = 10) 
-  errors = data.frame(fit$lambda, fit$cvm)
-  lambdas <- rbind(lambdas, errors)
-  print("*")
-}
-# take mean cvm for each lambda
-lambdas <- aggregate(lambdas[, 2], list(lambdas$fit.lambda), mean)
+fit_lasso <- cv.glmnet(x, y, alpha = 1, nfolds = 10)
 
-# select the best one
-bestindex = which(lambdas[2]==min(lambdas[2]))
-bestlambda = lambdas[bestindex,1]
+coef(fit_lasso, fit_lasso$lambda.1se)
+coef(fit_lasso, fit_lasso$lambda.min)
+rsq_lasso = 1-fit_lasso$cvm/as.numeric(var(y))
+rsq_lasso = rsq_lasso[which(fit_lasso$lambda==fit_lasso$lambda.1se)]
 
-# and now run glmnet once more with it
-lasso <- glmnet(x, y, alpha = 1, lambda=bestlambda)
-pfit <- predict.glmnet(lasso, x[1:5,], s = 0, type="response")
-plot(pfit,y)
+# # Välj optimala lambda genom att iterera 100 ggr över 10-fold modeller
+# lambdas = NULL
+# for (i in 1:50)
+# {
+#   fit <- cv.glmnet(x, y, alpha = 1, nfolds = 10) 
+#   errors = data.frame(fit$lambda, fit$cvm)
+#   lambdas <- rbind(lambdas, errors)
+#   print("*")
+# }
+# # take mean cvm for each lambda
+# lambdas <- aggregate(lambdas[, 2], list(lambdas$fit.lambda), mean)
+# 
+# # select the best one
+# bestindex = which(lambdas[2]==min(lambdas[2]))
+# bestlambda = lambdas[bestindex,1]
+# 
+# # and now run glmnet once more with it
+# lasso <- glmnet(x, y, alpha = 1, lambda=bestlambda)
+# pfit <- predict.glmnet(lasso, x[1:5,], s = 0, type="response")
+# plot(pfit,y)
+# 
+# r2_lasso <- lasso$dev.ratio
+# 
+# model_men <- fit 
 
-r2_lasso <- lasso$dev.ratio
-
-model_men <- fit 
 ### Hur ska vi jämföra våra två modeller?
 
 y_test <- as.matrix(men_test[c(1)])
 x_test <- as.matrix(men_test[c(-1)])
 
-pfit <- predict.glmnet(lasso, x_test, s=0, type="response")
+pfit <- predict.glmnet(fit_lasso$glmnet.fit, x_test, s=fit_lasso$lambda.1se, type="response")
 SS_res <- sum((y_test-pfit)^2)
 SS_R <- sum((pfit-mean(y_test))^2)
 SS_T <- SS_R + SS_res
 R_sq_lasso <- SS_R / SS_T
 
-pfit <- predict(model_men_Cp, as.data.frame(x_test))
+pfit <- predict(best_model, as.data.frame(x_test))
 SS_res <- sum((y_test-pfit)^2)
 SS_R <- sum((pfit-mean(y_test))^2)
 SS_T <- SS_R + SS_res
 R_sq_bestsub <- SS_R / SS_T
 
+
 #Predict:a på första modellen (all possible regressions)
-p_apr <- predict(model_men_Cp, men_test)
+# p_apr <- predict(model_men_Cp, men_test)
+# 
+# x.test <- model.matrix(density ~ ., men_test)[,-1]
+# pred <- predict(lasso, type='response', newx=x.test)
+# 
+# men_test$density <- NULL
+# X <- data.matrix(men_test)
+# 
+# pfit <- predict.glmnet(lasso, X, s = 0, type="response")
 
-x.test <- model.matrix(density ~ ., men_test)[,-1]
-pred <- predict(lasso, type='response', newx=x.test)
 
-men_test$density <- NULL
-X <- data.matrix(men_test)
+## Bootstrapping to find mean and sd of R-sqr of model fit
 
-pfit <- predict.glmnet(lasso, X, s = 0, type="response")
+men_all = rbind(men, men_test)
+y_all <- as.matrix(men_all[c(1)])
+x_all <- as.matrix(men_all[c(-1)])
+R_sq_bestsub_vec = NULL
+R_sq_lasso_vec = NULL
+for(i in 1:5000){
+  sample_vec =  sample(nrow(men_all), 
+                       nrow(men_all), 
+                       replace = TRUE) 
+  x_sample = x_all[sample_vec,]
+  y_sample = y_all[sample_vec]
+  
+  pfit <- predict.glmnet(fit_lasso$glmnet.fit, 
+                         x_sample, 
+                         s=fit_lasso$lambda.1se, 
+                         type="response")
+  R_sq_lasso_vec <- c(R_sq_lasso_vec, 
+                      R_sq_fun(pfit, x_sample, y_sample))
+  
+  pfit <- predict(best_model, as.data.frame(x_sample))
+  R_sq_bestsub_vec <- c(R_sq_bestsub_vec, 
+                        R_sq_fun(pfit, x_sample, y_sample))
+}
+rm(x_sample, y_sample, pfit)
 
+R_sq_lasso_bootstrap <- mean(R_sq_lasso_vec)
+R_sq_lasso_sd_bootstrap <- sd(R_sq_lasso_vec)
+R_sq_bestsub_boot <- mean(R_sq_bestsub_vec)
+R_sq_bestsub_sd_boot <- sd(R_sq_bestsub_vec)
+
+hist(R_sq_lasso_vec)
+hist(R_sq_bestsub_vec)
